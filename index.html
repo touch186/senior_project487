@@ -5,8 +5,17 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>sample title</title>
+    <link rel="stylesheet" href="./css/style.css">
 </head>
+<script src="./javascript/javascript.js"></script>
 <body>
+    <div>
+        <h1>Enter your name, read the article, highlight text that you think is biased, and click submit.</h1>
+    </div>
+    <div id="inputdiv">
+        
+        <input type="text" id="name" name="name" placeholder="Enter your name" />
+    </div>
     <h1>Eternal Existence</h1>
     <div>
         <p onmouseup="getSelectionText();">
@@ -14,17 +23,10 @@
         </p>
         
     </div>
-    <button>Submit</button>
+    <div id="buttondiv">
+        <button>Submit</button>
+    </div>
+    
 </body>
-    <script>
-        function getSelectionText() {
-            var text = "";
-            if (window.getSelection) {
-                text = window.getSelection().toString();
-            } else if (document.selection && document.selection.type != "Control") {
-                text = document.selection.createRange().text;
-            }
-            console.log(text);
-        }
-    </script>
+    
 </html>
