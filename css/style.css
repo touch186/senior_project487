@@ -1,4 +1,4 @@
-input[type=text] {
+input[type=text], textarea[type=text] {
     text-align: center;
     width: 25%;
     padding: 12px 20px;
@@ -7,7 +7,13 @@ input[type=text] {
     font-size: large;
 }
 
-button {
+
+#buttondiv, #inputdiv{
+    display: flex;
+    justify-content: center;
+}
+
+#submit {
     width: 50%;
     background-color: #008CBA;
     border: none;
@@ -19,7 +25,46 @@ button {
     font-size: 16px;
 }
 
-#buttondiv, #inputdiv{
+#left {
+    background-color: blue;
+    color: white;
+}
+#right {
+    background-color: red;
+    color: white;
+}
+
+.text {
+
+    background: #fff;
+
+    position: relative;
     display: flex;
-    justify-content: center;
+  
+}
+p {
+    margin: 0;
+}
+h1 {
+    user-select: none;
+    color: green;
+}
+.menu {
+    display: none;
+    position: absolute;
+    background: #a4a4a4;
+
+}
+
+.popup {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0, 0, 0);
+    background-color: rgba(0, 0, 0, 0.4);
 }
