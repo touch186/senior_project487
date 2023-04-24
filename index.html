@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+    
     <button id="clearButton">Clear Highlights</button>
   <a href="signin.html">Admin log in</a>
   <!-- <div class="menu">
@@ -53,7 +54,17 @@
             <button id="submit" name="button">Submit</button>
         </div>
     </form>
-
+    <div>
+    <h1>Sentiment Analysis</h1>
+    <h2>Want the sentiment score of your recent highlight? Press Analyze</h2>
+    <p>
+        The Sentiment Score of your recent highlight is: <p id="p-score"></p>
+    </p>
+</div>
+    <form id="myForm">
+        <textarea id="sentiment" name="sentiment" hidden></textarea>
+        <button id="Analysis">Analyze</button>
+    </form>
     
     <!-- <textarea id="output"></textarea>
     <div id="mypopup" class="popup">

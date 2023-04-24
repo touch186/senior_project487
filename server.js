@@ -10,6 +10,9 @@ const pdfjs = require("pdfjs-dist/build/pdf");
 const pdfParse = require('pdf-parse');
 const bcrypt = require('bcrypt');
 const { MongoClient } = require('mongodb');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const sentiment = require('sentiment');
+const session = require('express-session');
 
 app.use(bodyParser.urlencoded({extended: true}));
 
@@ -23,6 +26,11 @@ app.use(express.static(__dirname));
 
 app.use(upload());
 
+app.use(session({
+  secret: 'my-secret-key',
+  resave: false,
+  saveUninitialized: true
+}));
 //gets today's date
 var today = new Date();
 var dd = String(today.getDate()).padStart(2, '0');
@@ -122,7 +130,7 @@ async function getContent(src, num, pages){
   const doc = await pdfjs.getDocument(src).promise;
   const page = await doc.getPage(num);
   if(num === pages){
-    console.log("getcontent");
+    // console.log("getcontent");
   }
   return await page.getTextContent();
 }
@@ -141,11 +149,12 @@ async function getItems(src, num, pages, str){
     // console.log(item.str);
     // list.push(item.str);
     // list += item.str;
-    
+    console.log(item.str);
     list.push(item.str);
     // console.log("hi");
     
     app.get('/data', (req, res) => {
+      
       res.json(list);
     });
   });
@@ -164,7 +173,7 @@ function read_files(){
     }
     files = result;
     // console.log(files); // or do something else with the files array
-    files.reverse();
+    // files.reverse();
     let temp = [];
     var count = 0;
     files.forEach(file => {
@@ -175,7 +184,7 @@ function read_files(){
     temp.pop();
     console.log(temp);
     for(let i = 0; i < temp.length; i++){
-      
+      console.log(temp[i]);
       pdfParse(temp[i]).then((pdfData) => {
           
           const numPages = pdfData.numpages;
@@ -221,30 +230,6 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 // Use body-parser to parse request bodies
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Serve the login form
-// app.get('/login', (req, res) => {
-//   res.send(`
-//     <!DOCTYPE html>
-//     <html>
-//       <head>
-//         <title>Login Form</title>
-//       </head>
-//       <body>
-//         <h1>Login Form</h1>
-//         <form action="/login" method="POST">
-//           <label for="username">Username:</label>
-//           <input type="text" id="username" name="username" required><br><br>
-
-//           <label for="password">Password:</label>
-//           <input type="password" id="password" name="password" required><br><br>
-
-//           <input type="submit" value="Submit">
-//         </form>
-//       </body>
-//     </html>
-//   `);
-// });
-
 // Handle form submissions
 app.post('/login', async (req, res) => {
   try {
@@ -261,7 +246,11 @@ app.post('/login', async (req, res) => {
     const passwordMatch = await bcrypt.compare(req.body.password, user.password);
 
     if (passwordMatch) {
-      res.redirect('/admin.html');
+      req.session.user = {
+        id: user._id,
+        username: user.username
+      };
+      res.redirect('/admin');
     } else {
       res.send("Incorrect password");
     }
@@ -271,6 +260,39 @@ app.post('/login', async (req, res) => {
   } finally {
     await client.close();
   }
+});
+
+app.get('/export', async (req, res) => {
+    await client.connect();
+    const db = client.db('project_database');
+    const collection = db.collection('notes');
+
+    collection.find({}, { projection: { _id: 0, name: 1, date: 1 , wing: 1, text: 1, reason: 1} }).toArray(function(err, docs) {
+      if (err) throw err;
+
+      const csvWriter = createCsvWriter({
+        path: 'data.csv',
+        header: [
+          { id: 'name', title: 'Name' },
+          { id: 'date', title: 'Date' },
+          { id: 'wing', title: 'Wing' },
+          { id: 'text', title: 'Text' },
+          { id: 'reason', title: 'Reason'}
+        ]
+      });
+
+      csvWriter.writeRecords(docs)
+        .then(() => {
+          console.log('CSV file written successfully');
+          res.download('data.csv', 'data.csv');
+        })
+        .catch((err) => {
+          console.error(err);
+          res.sendStatus(500);
+        });
+
+      client.close(); // Maybe delete this so i can press it twice?
+    });
 });
 
 // async function listUsernames() {
@@ -289,3 +311,59 @@ app.post('/login', async (req, res) => {
 // }
 
 // listUsernames();
+
+
+
+// result = sent.analyze('Cats are stupid.');
+// console.dir(result.score);
+var sent = new sentiment();
+var test = ""
+app.post("/sentiment_score", async (req,res) => {
+  var sentence = req.body.sentiment;
+  console.log(sentence);
+  var result = sent.analyze(sentence);
+  test = result.score;
+  res.json(result);
+  // res.redirect('sentiment_score');
+})
+// app.get("/sentiment_score", async (req,res) => {
+//   res.json(test);
+// })
+
+function requireAuth(req, res, next) {
+  if (req.session.user) {
+    // User is authenticated, continue with request
+    next();
+  } else {
+    // User is not authenticated, redirect to login page
+    res.redirect('/signin.html');
+  }
+}
+
+app.get('/admin', requireAuth, (req, res) => {
+  const filePath = path.join(__dirname, 'admin', 'admin.html');
+  res.sendFile(filePath);
+});
+
+function checkSession(req, res, next) {
+  if (req.session.lastInteraction) {
+    // Check if it's been more than 5 minutes since last interaction
+    const now = new Date();
+    const lastInteraction = new Date(req.session.lastInteraction);
+    const minutesSinceLastInteraction = (now - lastInteraction) / 1000 / 60;
+
+    if (minutesSinceLastInteraction >= 5) {
+      // Session has expired, destroy it
+      req.session.destroy();
+    }
+  }
+
+  // Update last interaction time
+  req.session.lastInteraction = new Date();
+
+  // Continue with request
+  next();
+}
+
+// Apply the middleware to all routes
+app.use(checkSession);

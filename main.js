@@ -278,7 +278,6 @@
 fetch('/data')
 .then(response => response.json())
 .then(data => {
-  
   let num = 1;
   let article = document.createElement("p");
   article.setAttribute("id", "text")
@@ -291,7 +290,8 @@ fetch('/data')
   article.append(header);
   for(let i = 0; i < data.length; i++) {
     if(data[i].length === 0){
-      data[i] = " ";
+      article.appendChild(document.createElement('br'))
+      article.appendChild(document.createElement('br'))
     }
     if(data[i] === "END_OF_FILE"){
       let header1 = document.createElement("h1");
@@ -324,9 +324,6 @@ fetch('/data')
 
 var highlights = [];
 document.getElementById("article").addEventListener("mouseup", function() {
-  // if(document.getElementsByClassName("popup")){
-  //   document.body.removeChild(popup);
-  // }
   var selection = window.getSelection().toString();
   if(selection !== '') {
     var range = window.getSelection().getRangeAt(0);
@@ -334,6 +331,7 @@ document.getElementById("article").addEventListener("mouseup", function() {
     range.surroundContents(newNode);
     highlights.push(selection);
     console.log("hi");
+    document.getElementById("sentiment").innerHTML = selection
     document.getElementById("highlight").append(selection + "(sep)");
     var popup = document.createElement('div');
     popup.classList.add('popup');
@@ -349,7 +347,7 @@ document.getElementById("article").addEventListener("mouseup", function() {
     var rect = range.getBoundingClientRect();
 
     // set popup position
-    popup.style.top = rect.top - popup.offsetHeight - 10 + 'px'; // 10px padding
+    popup.style.top = rect.top - popup.offsetHeight - 10 + 'px';
     popup.style.left = rect.left + rect.width/2 - popup.offsetWidth/2 + 'px';
     document.body.appendChild(popup);
 
@@ -357,14 +355,12 @@ document.getElementById("article").addEventListener("mouseup", function() {
     leftButton.addEventListener('click', function() {
       document.body.removeChild(popup);
       console.log('Left button clicked');
-      // highlights.pop();
       console.log(highlights);
       document.getElementById("wing").append("Left ");
     });
     rightButton.addEventListener('click', function() {
       document.body.removeChild(popup);
       console.log('Right button clicked');
-      // highlights.pop();
       console.log(highlights);
       document.getElementById("wing").append("Right ");
     });
@@ -391,3 +387,38 @@ clearButton.addEventListener("click", function() {
   console.log(highlights);
 });
 
+
+
+// fetch('/sentiment_score')
+// .then(response => response.json())
+// .then(data => {
+//   console.log(data);
+// })
+// async function fetchScore() {
+//   const response = await fetch('/sentiment_score');
+//   const score = await response.json();
+//   return score;
+// }
+
+// fetchScore().then(score => {
+//   console.log(score);
+// })
+
+const form = document.getElementById('myForm');
+form.addEventListener('submit', function(event) {
+  event.preventDefault(); // prevent the form from submitting normally
+
+  const formData = new FormData(form);
+  fetch('/sentiment_score', {
+    method: 'POST',
+    body: formData
+  })
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('p-score').innerHTML = data.score;
+      console.log(data.score);
+    })
+    .catch(error => {
+      console.error(error);
+    });
+});
