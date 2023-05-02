@@ -36,7 +36,7 @@ app.use(session({
   resave: false,
   saveUninitialized: true
 }));
-//gets today's date
+
 var today = new Date();
 var dd = String(today.getDate()).padStart(2, '0');
 var mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -61,7 +61,7 @@ app.listen(PORT, function() {
     console.log("server is running on 8080");
 })
 
-// const upload_pdf = multer({ storage: multer.memoryStorage() });
+
 
 const storage = new Storage({
   projectId: 'fresh-generator-383318',
@@ -72,7 +72,6 @@ const bucket = storage.bucket('upload_pdfs');
 const bucket_csv = storage.bucket('csv_download1')
 var pdf_list = []
 app.post('/post', (req, res, next) => {
-  // const pdf = req.file;
   var file_t = req.files.file;
   
   var filename = file_t.name;
@@ -130,30 +129,6 @@ app.post('/post', (req, res, next) => {
 });
 
 
-// app.post("/post", (req,res) => {
-//   const folderName = 'uploads';
-//   // Check if the folder exists, if not, create it
-//   if (!fs.existsSync(folderName)) {
-//     fs.mkdirSync(folderName);
-//   }
-//   if(req.files) {
-//       console.log(req.files);
-//       var file = req.files.file;
-//       var filename = file.name;
-//       console.log(filename);
-
-//       file.mv('./uploads/'+filename, function(err) {
-//           if (err) {
-//             res.send(err);
-//           } else {
-//             // list = [];
-//             read_files();
-//             res.redirect('/admin');
-//           }
-//       });
-//   }
-// })
-
 app.post("/", function(req, res){
     let newNote = new Note({
         name: req.body.name,
@@ -166,26 +141,6 @@ app.post("/", function(req, res){
     res.json("Submitted");
 })
 
-// const testFolder = './uploads';
-
-// fs.readdir(testFolder, (err, files) => {
-//     files.forEach(file => {
-//       console.log(file);
-//     });
-// });
-
-// app.get('/get-files', function(req, res) {
-//     const folder = req.query.folder || '';
-//     const path = `${__dirname}/${folder}`;
-//     fs.readdir(path, function(err, files) {
-//       if (err) {
-//         console.error(err);
-//         res.status(500).send(err);
-//       } else {
-//         res.json(files);
-//       }
-//     });
-//   });
 
 
 app.delete('/deleteFile/:fileName', async (req, res) => {
@@ -232,90 +187,6 @@ app.delete('/deleteFile/:fileName', async (req, res) => {
   })
   }, 3000)
 });
-
-
-
-// async function getContent(src, num, pages){
-//   const doc = await pdfjs.getDocument(src).promise;
-//   const page = await doc.getPage(num);
-//   if(num === pages){
-//     // console.log("getcontent");
-//   }
-//   return await page.getTextContent();
-// }
-// // var list = "";
-
-
-// async function getItems(src, num, pages, str){
-//   // console.log((count++).toString() + str);
-//   // if(str != ''){
-//   //   list.push(str);
-//   // }
-//   let x = num
-//   let y = pages
-//   const content = await getContent(src, x, y);
-//   const items = content.items.map((item) => {
-//     // console.log(item.str);
-//     // list.push(item.str);
-//     // list += item.str;
-//     console.log(item.str);
-//     list.push(item.str);
-//     // console.log("hi");
-    
-//     app.get('/data', (req, res) => {
-      
-//       res.json(list);
-//     });
-//   });
-//   return items;
-// }
-// // getItems("./uploads/Project_requirements.pdf");
-
-// const directoryPath = "./uploads/";
-// let files = [];
-// function read_files(){
-//   fs.readdir(directoryPath, (err, result) => {
-//     let keyword = "END_OF_FILE";
-//     if (err) {
-//       console.error(err);
-//       return;
-//     }
-//     files = result;
-//     // console.log(files); // or do something else with the files array
-//     // files.reverse();
-//     let temp = [];
-//     var count = 0;
-//     files.forEach(file => {
-//       filenames = directoryPath + file;
-//       temp.push(filenames);
-//       temp.push("./EOF/END_OF_FILE.pdf");
-//     });
-//     temp.pop();
-//     console.log(temp);
-//     for(let i = 0; i < temp.length; i++){
-//       console.log(temp[i]);
-//       pdfParse(temp[i]).then((pdfData) => {
-          
-//           const numPages = pdfData.numpages;
-//           // console.log(filenames);
-//           console.log(numPages);
-//           for(var j = 1; j <= numPages; j++){
-//             // console.log(filenames);
-//             // console.log(j);
-//             console.log(count);
-//             if(j === 1){
-//               getItems(temp[i], j, numPages, keyword);
-//             }else {
-              
-//               getItems(temp[i], j, numPages, '');
-//             }
-//           }
-//       });
-//   }
-//   });
-// }
-
-// read_files();
 
 
 const uri = 'mongodb+srv://hongbinzhu4:0wP9Z9KIhxqoeJxm@cluster0.fsieggk.mongodb.net/test?retryWrites=true&w=majority';
@@ -399,60 +270,8 @@ app.post('/export', async (req, res) => {
 
       client.close();
     });
-    // await client.connect()
-    // const file = bucket_csv.file("data.csv");
-    
-    // const collection = client.db("project_database").collection('notes');
-    // const cursor = collection.find({}, { projection: { _id: 0, name: 1, date: 1 , wing: 1, text: 1, reason: 1} });
-  
-    // const writer = csvWriter({ headers: ["Name", "Date", "Wing", "Text", "Reason"] });
-    // const writeStream = file.createWriteStream({
-    //   resumable: false,
-    //   metadata: {
-    //     contentType: 'text/csv',
-    //   },
-    // });
-  
-    // writer.pipe(writeStream);
-  
-    // await cursor.forEach((doc) => {
-    //   writer.write(doc);
-    // });
-  
-    // writer.end();
-  
-    // writeStream.on('error', (err) => {
-    //   console.error(err);
-    // });
-  
-    // writeStream.on('finish', () => {
-    //   console.log(`Successfully wrote to CSV file: data.csv`);
-    //   client.close();
-    // });
-
 });
 
-// async function listUsernames() {
-//   try {
-//     await client.connect();
-
-//     const users = client.db("mydatabase").collection("users");
-//     const usernames = await users.distinct("username");
-
-//     console.log(usernames);
-//   } catch (err) {
-//     console.log(err);
-//   } finally {
-//     await client.close();
-//   }
-// }
-
-// listUsernames();
-
-
-
-// result = sent.analyze('Cats are stupid.');
-// console.dir(result.score);
 var sent = new sentiment();
 var test = ""
 app.post("/sentiment_score", async (req,res) => {
@@ -461,18 +280,13 @@ app.post("/sentiment_score", async (req,res) => {
   var result = sent.analyze(sentence);
   test = result.score;
   res.json(result);
-  // res.redirect('sentiment_score');
 })
-// app.get("/sentiment_score", async (req,res) => {
-//   res.json(test);
-// })
+
 
 function requireAuth(req, res, next) {
   if (req.session.user) {
-    // User is authenticated, continue with request
     next();
   } else {
-    // User is not authenticated, redirect to login page
     res.redirect('/signin.html');
   }
 }
