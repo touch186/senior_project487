@@ -25,23 +25,6 @@ function deleteFile(fileName) {
 
 }
 
-// const exportButton = document.getElementById('export-button');
-// exportButton.addEventListener('click', function() {
-//   const xhr = new XMLHttpRequest();
-//   xhr.open('POST', '/export');
-//   xhr.setRequestHeader('Content-Type', 'application/json');
-//   xhr.responseType = 'blob';
-//   xhr.onload = function() {
-//     const url = window.URL.createObjectURL(xhr.response);
-//     const a = document.createElement('a');
-//     a.href = url;
-//     // a.download = 'data.csv';
-//     document.body.appendChild(a);
-//     a.click();
-//     a.remove();
-//   };
-//   xhr.send();
-// });
 
 fetch('/file_names')
 .then(response => response.json())
@@ -61,12 +44,3 @@ fetch('/file_names')
 .catch(error => {
   console.error(error);
 });
-
-
-// fetch('/export')
-// .then(response => response.json())
-// .then(data => {
-//   if(data === "success"){
-//     location.href = "https://storage.cloud.google.com/csv_download1/data.csv?authuser=2"
-//   }
-// })
