@@ -13,6 +13,11 @@ const { MongoClient } = require('mongodb');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const sentiment = require('sentiment');
 const session = require('express-session');
+const multer = require('multer');
+const { Storage } = require('@google-cloud/storage');
+const PDFParser = require('pdf-parse');
+const streamToBuffer = require('stream-to-buffer');
+const csvWriter = require('csv-write-stream');
 
 app.use(bodyParser.urlencoded({extended: true}));
 
@@ -51,29 +56,103 @@ const Note = mongoose.model("Note", schema);
 
 
 var list = [];
-
-app.listen(3000, function() {
-    console.log("server is running on 3000");
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, function() {
+    console.log("server is running on 8080");
 })
 
-app.post("/post", (req,res) => {
-    if(req.files) {
-        console.log(req.files);
-        var file = req.files.file;
-        var filename = file.name;
-        console.log(filename);
+// const upload_pdf = multer({ storage: multer.memoryStorage() });
 
-        file.mv('./uploads/'+filename, function(err) {
-            if (err) {
-              res.send(err);
-            } else {
-              // list = [];
-              read_files();
-              res.redirect('/admin.html');
-            }
+const storage = new Storage({
+  projectId: 'fresh-generator-383318',
+  keyFilename: './keyfile/fresh-generator-383318-f79f6625deb9.json',
+});
+
+const bucket = storage.bucket('upload_pdfs');
+const bucket_csv = storage.bucket('csv_download1')
+var pdf_list = []
+app.post('/post', (req, res, next) => {
+  // const pdf = req.file;
+  var file_t = req.files.file;
+  
+  var filename = file_t.name;
+  const file = bucket.file(filename);
+  pdf_list.push(filename);
+  const stream = file.createWriteStream({
+    metadata: {
+      contentType: file_t.mimetype,
+    },
+    resumable: false,
+  });
+
+  stream.on('error', err => {
+    file_t.buffer = null;
+    next(err);
+  });
+
+  stream.on('finish', () => {
+    file_t.buffer = null;
+    res.status(200).send('File uploaded successfully.');
+  });
+
+  stream.end(file_t.data);
+  setTimeout(function() {
+      list = []
+      file_list = []
+      listFilesInBucket().then(fileNames => {
+      console.log(fileNames);
+      for(let i = 0; i < fileNames.length; i++) {
+        console.log(fileNames[i])
+        file_list.push(fileNames[i])
+        getTextFromPDF(fileNames[i])
+        .then((text) => {
+          console.log(text);
+          list.push(text);
+          list.push("END_OF_FILE")
+          if(i === fileNames.length-1) {
+            list.pop()
+          }
+          app.get('/file_names', (req, res) => {
+            res.json(file_list);
+          });
+          app.get('/data', (req, res) => {
+            res.json(list);
+          });
+        })
+        .catch((err) => {
+          console.error(err);
         });
-    }
-})
+      }
+    }).catch(error => {
+      console.error(error);
+    })
+  }, 3000)
+});
+
+
+// app.post("/post", (req,res) => {
+//   const folderName = 'uploads';
+//   // Check if the folder exists, if not, create it
+//   if (!fs.existsSync(folderName)) {
+//     fs.mkdirSync(folderName);
+//   }
+//   if(req.files) {
+//       console.log(req.files);
+//       var file = req.files.file;
+//       var filename = file.name;
+//       console.log(filename);
+
+//       file.mv('./uploads/'+filename, function(err) {
+//           if (err) {
+//             res.send(err);
+//           } else {
+//             // list = [];
+//             read_files();
+//             res.redirect('/admin');
+//           }
+//       });
+//   }
+// })
 
 app.post("/", function(req, res){
     let newNote = new Note({
@@ -84,6 +163,7 @@ app.post("/", function(req, res){
         reason: req.body.reason
     });
     newNote.save();
+    res.json("Submitted");
 })
 
 // const testFolder = './uploads';
@@ -94,132 +174,148 @@ app.post("/", function(req, res){
 //     });
 // });
 
-app.get('/get-files', function(req, res) {
-    const folder = req.query.folder || '';
-    const path = `${__dirname}/${folder}`;
-    fs.readdir(path, function(err, files) {
-      if (err) {
-        console.error(err);
-        res.status(500).send(err);
-      } else {
-        res.json(files);
-      }
-    });
-  });
+// app.get('/get-files', function(req, res) {
+//     const folder = req.query.folder || '';
+//     const path = `${__dirname}/${folder}`;
+//     fs.readdir(path, function(err, files) {
+//       if (err) {
+//         console.error(err);
+//         res.status(500).send(err);
+//       } else {
+//         res.json(files);
+//       }
+//     });
+//   });
 
 
-app.delete('/deleteFile/:fileName', (req, res) => {
-    const fileName = req.params.fileName;
-    const filePath = `uploads/${fileName}`;
+app.delete('/deleteFile/:fileName', async (req, res) => {
+  const fileName = req.params.fileName;
 
-    fs.unlink(filePath, (err) => {
-        if (err) {
-          console.error(err);
-          res.sendStatus(500);
-        } else {
-          list = [];
-          read_files();
-          res.sendStatus(200);
+  // Get the file object
+  const file = bucket.file(fileName);
+
+  // Delete the file
+  await file.delete();
+
+  // Redirect to admin page after deletion
+  res.redirect('/admin');
+  setTimeout(function() {
+    list = []
+    file_list = []
+    listFilesInBucket().then(fileNames => {
+    console.log(fileNames);
+    
+    for(let i = 0; i < fileNames.length; i++) {
+      console.log(fileNames[i])
+      file_list.push(fileNames[i])
+      getTextFromPDF(fileNames[i])
+      .then((text) => {
+        console.log(text);
+        list.push(text);
+        list.push("END_OF_FILE")
+        if(i === fileNames.length-1) {
+          list.pop()
         }
-    });
+        app.get('/file_names', (req, res) => {
+          res.json(file_list);
+        });
+        app.get('/data', (req, res) => {
+          res.json(list);
+        });
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+    }
+  }).catch(error => {
+    console.error(error);
+  })
+  }, 3000)
 });
 
 
 
-async function getContent(src, num, pages){
-  const doc = await pdfjs.getDocument(src).promise;
-  const page = await doc.getPage(num);
-  if(num === pages){
-    // console.log("getcontent");
-  }
-  return await page.getTextContent();
-}
-// var list = "";
+// async function getContent(src, num, pages){
+//   const doc = await pdfjs.getDocument(src).promise;
+//   const page = await doc.getPage(num);
+//   if(num === pages){
+//     // console.log("getcontent");
+//   }
+//   return await page.getTextContent();
+// }
+// // var list = "";
 
 
-async function getItems(src, num, pages, str){
-  // console.log((count++).toString() + str);
-  // if(str != ''){
-  //   list.push(str);
-  // }
-  let x = num
-  let y = pages
-  const content = await getContent(src, x, y);
-  const items = content.items.map((item) => {
-    // console.log(item.str);
-    // list.push(item.str);
-    // list += item.str;
-    console.log(item.str);
-    list.push(item.str);
-    // console.log("hi");
+// async function getItems(src, num, pages, str){
+//   // console.log((count++).toString() + str);
+//   // if(str != ''){
+//   //   list.push(str);
+//   // }
+//   let x = num
+//   let y = pages
+//   const content = await getContent(src, x, y);
+//   const items = content.items.map((item) => {
+//     // console.log(item.str);
+//     // list.push(item.str);
+//     // list += item.str;
+//     console.log(item.str);
+//     list.push(item.str);
+//     // console.log("hi");
     
-    app.get('/data', (req, res) => {
+//     app.get('/data', (req, res) => {
       
-      res.json(list);
-    });
-  });
-  return items;
-}
-// getItems("./uploads/Project_requirements.pdf");
+//       res.json(list);
+//     });
+//   });
+//   return items;
+// }
+// // getItems("./uploads/Project_requirements.pdf");
 
-const directoryPath = "./uploads/";
-let files = [];
-function read_files(){
-  fs.readdir(directoryPath, (err, result) => {
-    let keyword = "END_OF_FILE";
-    if (err) {
-      console.error(err);
-      return;
-    }
-    files = result;
-    // console.log(files); // or do something else with the files array
-    // files.reverse();
-    let temp = [];
-    var count = 0;
-    files.forEach(file => {
-      filenames = directoryPath + file;
-      temp.push(filenames);
-      temp.push("./EOF/END_OF_FILE.pdf");
-    });
-    temp.pop();
-    console.log(temp);
-    for(let i = 0; i < temp.length; i++){
-      console.log(temp[i]);
-      pdfParse(temp[i]).then((pdfData) => {
+// const directoryPath = "./uploads/";
+// let files = [];
+// function read_files(){
+//   fs.readdir(directoryPath, (err, result) => {
+//     let keyword = "END_OF_FILE";
+//     if (err) {
+//       console.error(err);
+//       return;
+//     }
+//     files = result;
+//     // console.log(files); // or do something else with the files array
+//     // files.reverse();
+//     let temp = [];
+//     var count = 0;
+//     files.forEach(file => {
+//       filenames = directoryPath + file;
+//       temp.push(filenames);
+//       temp.push("./EOF/END_OF_FILE.pdf");
+//     });
+//     temp.pop();
+//     console.log(temp);
+//     for(let i = 0; i < temp.length; i++){
+//       console.log(temp[i]);
+//       pdfParse(temp[i]).then((pdfData) => {
           
-          const numPages = pdfData.numpages;
-          // console.log(filenames);
-          console.log(numPages);
-          for(var j = 1; j <= numPages; j++){
-            // console.log(filenames);
-            // console.log(j);
-            console.log(count);
-            if(j === 1){
-              getItems(temp[i], j, numPages, keyword);
-            }else {
+//           const numPages = pdfData.numpages;
+//           // console.log(filenames);
+//           console.log(numPages);
+//           for(var j = 1; j <= numPages; j++){
+//             // console.log(filenames);
+//             // console.log(j);
+//             console.log(count);
+//             if(j === 1){
+//               getItems(temp[i], j, numPages, keyword);
+//             }else {
               
-              getItems(temp[i], j, numPages, '');
-            }
-          }
-      });
-  }
-  
-  
-  // for(var i = 0; i < files.length; i++){
-  //   filenames = directoryPath + files[i];
-  //   pdfParse(filenames).then((pdfData) => {
-  //     const numPages = pdfData.numpages;
-  //     console.log(numPages);
-  //     for(var j = 1; j <= numPages; j++){
-  //       getItems(filenames, j);
-  //     }
-      
-  //   })
-  // }
-  });
-}
+//               getItems(temp[i], j, numPages, '');
+//             }
+//           }
+//       });
+//   }
+//   });
+// }
 
-read_files();
+// read_files();
 
 
 const uri = 'mongodb+srv://hongbinzhu4:0wP9Z9KIhxqoeJxm@cluster0.fsieggk.mongodb.net/test?retryWrites=true&w=majority';
@@ -262,7 +358,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.get('/export', async (req, res) => {
+app.post('/export', async (req, res) => {
     await client.connect();
     const db = client.db('project_database');
     const collection = db.collection('notes');
@@ -283,16 +379,57 @@ app.get('/export', async (req, res) => {
 
       csvWriter.writeRecords(docs)
         .then(() => {
+          
+          const file = bucket_csv.file("data.csv");
+
+          const fileStream = fs.createReadStream("data.csv");
+          const uploadStream = file.createWriteStream();
+
+          fileStream.pipe(uploadStream);
           console.log('CSV file written successfully');
-          res.download('data.csv', 'data.csv');
+          setTimeout(() => {
+            res.redirect(301, "https://storage.cloud.google.com/csv_download1/data.csv?authuser=2")
+          }, 3000);
+          
         })
         .catch((err) => {
           console.error(err);
           res.sendStatus(500);
         });
 
-      client.close(); // Maybe delete this so i can press it twice?
+      client.close();
     });
+    // await client.connect()
+    // const file = bucket_csv.file("data.csv");
+    
+    // const collection = client.db("project_database").collection('notes');
+    // const cursor = collection.find({}, { projection: { _id: 0, name: 1, date: 1 , wing: 1, text: 1, reason: 1} });
+  
+    // const writer = csvWriter({ headers: ["Name", "Date", "Wing", "Text", "Reason"] });
+    // const writeStream = file.createWriteStream({
+    //   resumable: false,
+    //   metadata: {
+    //     contentType: 'text/csv',
+    //   },
+    // });
+  
+    // writer.pipe(writeStream);
+  
+    // await cursor.forEach((doc) => {
+    //   writer.write(doc);
+    // });
+  
+    // writer.end();
+  
+    // writeStream.on('error', (err) => {
+    //   console.error(err);
+    // });
+  
+    // writeStream.on('finish', () => {
+    //   console.log(`Successfully wrote to CSV file: data.csv`);
+    //   client.close();
+    // });
+
 });
 
 // async function listUsernames() {
@@ -367,3 +504,66 @@ function checkSession(req, res, next) {
 
 // Apply the middleware to all routes
 app.use(checkSession);
+
+
+
+async function getTextFromPDF(fileName) {
+  // Get the PDF file from the bucket
+
+  const file = bucket.file(fileName);
+
+  // Download the file to memory
+  const [fileBuffer] = await file.download();
+  console.log(fileBuffer)
+  // Parse the PDF file and get the text content
+  const pdf = await pdfjs.getDocument(fileBuffer).promise;
+  const numPages = pdf.numPages;
+  let text = '';
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const pageText = await page.getTextContent();
+    text += pageText.items.map(item => item.str).join(' ');
+  }
+
+  return text;
+}
+async function listFilesInBucket() {
+
+  // Get a list of files in the bucket
+  const [files] = await bucket.getFiles();
+
+  // Get the file names and return as an array
+  const fileNames = files.map(file => file.name);
+  return fileNames;
+}
+
+var file_list = []
+listFilesInBucket().then(fileNames => {
+  console.log(fileNames);
+  
+  for(let i = 0; i < fileNames.length; i++) {
+    console.log(fileNames[i])
+    file_list.push(fileNames[i])
+    getTextFromPDF(fileNames[i])
+    .then((text) => {
+      console.log(text);
+      list.push(text);
+      list.push("END_OF_FILE")
+      if(i === fileNames.length-1) {
+        list.pop()
+      }
+      app.get('/file_names', (req, res) => {
+        res.json(file_list);
+      });
+      app.get('/data', (req, res) => {
+        res.json(list);
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+  }
+}).catch(error => {
+  console.error(error);
+});
+
